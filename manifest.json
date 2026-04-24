@@ -1,0 +1,77 @@
+{
+  "manifest_version": "0.2",
+  "name": "ROCm GPU Monitor",
+  "display_name": "ROCm GPU Monitor",
+  "version": "0.1.0",
+  "description": "Read-only AMD GPU monitoring for Claude on Linux — VRAM, temperature, clocks, power, and running ML processes via rocm-smi.",
+  "long_description": "This extension lets Claude answer questions like \"is my training run healthy?\", \"how hot is the GPU?\", \"how much VRAM is left?\", and \"which process is using the card?\" on a Linux machine with an AMD GPU. It shells out to rocm-smi (and optionally amdgpu_top) and exposes a small set of read-only tools. No process killing, no clock/power overrides, no fan control — if you need those, use a tool like gpu-kill.\n\n**Requirements:** An AMD GPU with the amdgpu kernel driver loaded and ROCm installed (`sudo apt install rocm-smi` or a full ROCm stack). Works with RDNA2/3/4 consumer cards (RX 6000/7000/9000, R9700) and CDNA data-center cards (MI series). Some metrics require newer ROCm versions; the server gracefully reports which metrics are unsupported on your card.\n\n**Scope:** Strictly read-only. All tools carry the MCP `readOnlyHint: true` annotation. Safe to enable on machines running long training jobs — nothing this extension does can interrupt a run.",
+  "author": {
+    "name": "Luke Lamb",
+    "url": "https://github.com/LukeLamb"
+  },
+  "homepage": "https://github.com/LukeLamb/claude-rocm-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LukeLamb/claude-rocm-mcp"
+  },
+  "documentation": "https://github.com/LukeLamb/claude-rocm-mcp#readme",
+  "support": "https://github.com/LukeLamb/claude-rocm-mcp/issues",
+  "icon": "icon.png",
+  "privacy_policies": [
+    "https://github.com/LukeLamb/claude-rocm-mcp#privacy-policy"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server.js"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "gpu_status",
+      "description": "One-shot summary of all AMD GPUs on the system: product name, GPU utilization %, VRAM used/total, edge/junction temperatures, average power draw, fan speed."
+    },
+    {
+      "name": "gpu_metrics",
+      "description": "Full rocm-smi metrics dump for every GPU (clocks, voltages, PCIe link, firmware versions, per-engine activity). Use for deep debugging when gpu_status is not enough."
+    },
+    {
+      "name": "gpu_processes",
+      "description": "List GPU processes (KFD PIDs) with their VRAM usage. Returns an empty list if no compute workloads are running."
+    },
+    {
+      "name": "gpu_watch",
+      "description": "Sample gpu_status at a fixed interval for a bounded duration and return the time series plus per-sample deltas. Useful for checking whether a training run is steady or fluctuating."
+    },
+    {
+      "name": "rocm_info",
+      "description": "Report the rocm-smi version, kernel driver version, loaded amdgpu module, installed ROCm packages (dpkg), and whether amdgpu_top is available."
+    }
+  ],
+  "keywords": [
+    "amd",
+    "rocm",
+    "gpu",
+    "amdgpu",
+    "monitoring",
+    "vram",
+    "ml",
+    "training",
+    "linux",
+    "claude-desktop"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": [
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=16.0.0"
+    }
+  }
+}

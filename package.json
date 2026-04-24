@@ -1,0 +1,8 @@
+{
+  "name": "claude-rocm-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for read-only AMD GPU monitoring on Linux: VRAM, temperature, clocks, power, running ML processes via rocm-smi.",
+  "main": "server.js",
+  "license": "MIT",
+  "dependencies": {}
+}
