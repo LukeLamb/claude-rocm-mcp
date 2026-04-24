@@ -182,14 +182,40 @@ async function gpuProcesses() {
     });
   }
 
-  // Format: {"system": {"<pid>": {"GPU use": "...", "VRAM": "...", ...}}, ...}
-  // or per-card PID maps. Flatten conservatively.
+  // rocm-smi --showpids --json emits one of two shapes depending on version:
+  //   (a) {"system": {"PID19971": "python, 1, 1139888128, 0, unknown"}, ...}
+  //   (b) {"system": {"19971": {"GPU use": "...", "VRAM": "...", ...}}, ...}
+  // The CSV string in (a) is:
+  //   "<process_name>, <gpu_count>, <vram_bytes>, <sdma_bytes>, <cu_occupancy>"
+  const PID_KEY_RE = /^(?:PID)?(\d+)$/;
   const processes = [];
   for (const [k, v] of Object.entries(data)) {
     if (!v || typeof v !== 'object') continue;
-    for (const [pid, info] of Object.entries(v)) {
-      if (!/^\d+$/.test(pid)) continue;
-      processes.push({ pid: parseInt(pid, 10), scope: k, ...info });
+    for (const [rawKey, info] of Object.entries(v)) {
+      const m = rawKey.match(PID_KEY_RE);
+      if (!m) continue;
+      const pid = parseInt(m[1], 10);
+      let entry;
+      if (typeof info === 'string') {
+        const parts = info.split(',').map((s) => s.trim());
+        const [process_name, gpu_count, vram_bytes, sdma_bytes, cu_occupancy] = parts;
+        entry = {
+          pid,
+          scope: k,
+          process_name: process_name ?? null,
+          gpu_count: gpu_count !== undefined ? parseInt(gpu_count, 10) : null,
+          vram_bytes: vram_bytes !== undefined ? parseInt(vram_bytes, 10) : null,
+          sdma_bytes: sdma_bytes !== undefined ? parseInt(sdma_bytes, 10) : null,
+          cu_occupancy: cu_occupancy && cu_occupancy.toLowerCase() !== 'unknown'
+            ? cu_occupancy
+            : null,
+        };
+      } else if (info && typeof info === 'object') {
+        entry = { pid, scope: k, ...info };
+      } else {
+        continue;
+      }
+      processes.push(entry);
     }
   }
 
@@ -368,7 +394,7 @@ async function handle(msg) {
     respond(id, {
       protocolVersion: '2024-11-05',
       capabilities: { tools: {} },
-      serverInfo: { name: 'rocm-mcp', version: '0.1.0' },
+      serverInfo: { name: 'rocm-mcp', version: '0.1.1' },
     });
     return;
   }
