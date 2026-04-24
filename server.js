@@ -68,17 +68,23 @@ function run(cmd, args, opts = {}) {
   });
 }
 
-// rocm-smi prints "WARNING: No JSON data to report" to stdout when a query
-// returns no data (e.g. unsupported metric on a given card). Detect that
-// and return null so callers can distinguish "nothing to report" from a
-// real parse failure.
-function parseRocmJson(stdout) {
-  const trimmed = (stdout || '').trim();
+// rocm-smi prints "WARNING: No JSON data to report" when a query returns
+// no data (e.g. unsupported metric on a given card). Detect that and
+// return null so callers can distinguish "nothing to report" from a real
+// parse failure. Some versions emit a banner/header before the JSON; if
+// the raw string doesn't parse, fall back to slicing from the first '{'.
+function parseRocmJson(stream) {
+  const trimmed = (stream || '').trim();
   if (!trimmed) return null;
   if (/No JSON data to report/i.test(trimmed)) return null;
   try {
     return JSON.parse(trimmed);
   } catch (_) {
+    const start = trimmed.indexOf('{');
+    const end = trimmed.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      try { return JSON.parse(trimmed.slice(start, end + 1)); } catch (_) {}
+    }
     return null;
   }
 }
@@ -169,16 +175,24 @@ async function gpuProcesses() {
   if (missing) return errorResult(missing);
 
   const r = await run(BIN.rocmSmi, ['--showpids', '--json']);
-  const data = parseRocmJson(r.stdout);
+  // rocm-smi writes the JSON to stdout, and the "No JSON data to report"
+  // warning to stderr. But some ROCm versions have been observed to swap
+  // them, so try both streams before giving up.
+  const data = parseRocmJson(r.stdout) || parseRocmJson(r.stderr);
 
-  // When no processes are running, rocm-smi emits "No JSON data to report"
-  // or a non-JSON human-readable "No KFD PIDs currently running". Both
-  // legitimately mean: the process list is empty.
+  // Empty list = no KFD processes registered. Include raw stream snippets
+  // in the note so the caller can tell "nothing is running" apart from
+  // "rocm-smi returned an unexpected shape I couldn't parse".
   if (!data) {
     return textResult({
       timestamp: new Date().toISOString(),
       processes: [],
-      note: 'No GPU compute processes currently running (or rocm-smi reports no data on this card).',
+      note: 'No GPU compute processes currently running (or rocm-smi returned no parseable JSON).',
+      diagnostic: {
+        exit_code: r.code,
+        stdout_snippet: (r.stdout || '').slice(0, 500),
+        stderr_snippet: (r.stderr || '').slice(0, 500),
+      },
     });
   }
 
@@ -394,7 +408,7 @@ async function handle(msg) {
     respond(id, {
       protocolVersion: '2024-11-05',
       capabilities: { tools: {} },
-      serverInfo: { name: 'rocm-mcp', version: '0.1.1' },
+      serverInfo: { name: 'rocm-mcp', version: '0.1.2' },
     });
     return;
   }

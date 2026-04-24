@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "ROCm GPU Monitor",
   "display_name": "ROCm GPU Monitor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Read-only AMD GPU monitoring for Claude on Linux — VRAM, temperature, clocks, power, and running ML processes via rocm-smi.",
   "long_description": "This extension lets Claude answer questions like \"is my training run healthy?\", \"how hot is the GPU?\", \"how much VRAM is left?\", and \"which process is using the card?\" on a Linux machine with an AMD GPU. It shells out to rocm-smi (and optionally amdgpu_top) and exposes a small set of read-only tools. No process killing, no clock/power overrides, no fan control — if you need those, use a tool like gpu-kill.\n\n**Requirements:** An AMD GPU with the amdgpu kernel driver loaded and ROCm installed (`sudo apt install rocm-smi` or a full ROCm stack). Works with RDNA2/3/4 consumer cards (RX 6000/7000/9000, R9700) and CDNA data-center cards (MI series). Some metrics require newer ROCm versions; the server gracefully reports which metrics are unsupported on your card.\n\n**Scope:** Strictly read-only. All tools carry the MCP `readOnlyHint: true` annotation. Safe to enable on machines running long training jobs — nothing this extension does can interrupt a run.",
   "author": {
